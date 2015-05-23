@@ -2,6 +2,10 @@
 # encoding: CP932
 ## CAUTION!! ## This code was automagically ;-) created by FormDesigner.
 # NEVER modify manualy -- otherwise, you'll have a terrible experience.
+# 2014.10.17 フィールドの文字消去時間設定をすべての入力後に適用（物品のときは設定してなかった）
+
+
+require 'drb/drb'
 
 require 'vr/vruby'
 require 'vr/vrcontrol'
@@ -11,6 +15,8 @@ require './buppin.rb'
 
 CLEAR_AFTER_KASHIDASHI = 2
 CLEAR_AFTER_INPUT      = 3
+
+SC_INI = './sc.ini'
 
 class String
   def strip_quote
@@ -24,7 +30,7 @@ end
 
 class INIT
 
-  attr_reader :goods, :meibo
+  attr_reader :goods, :meibo, :sc, :server_ip, :server_port
 
   def initialize
     @goods = {}
@@ -43,6 +49,21 @@ class INIT
         @meibo[no] = name
       }
     }
+    @sc = :server
+    @server_ip = 'localhost'
+    @server_port = '12345'
+
+    if File.exist? SC_INI
+      File.open(SC_INI, 'r') {|f|
+        f.each {|line|
+          next if /\A#/ =~ line
+          @sc = :server if line =~ /\Asc:server/i
+          @sc = :client if line =~ /\Asc:client/i
+          @server_ip = $1 if line =~ /\Aserver_ip:(\d+\.\d+\.\d+\.\d+)/i
+          @server_port = $1 if line =~ /\Aserver_port:(\d+)/i
+        }
+      }
+    end
   end
 end
 
@@ -74,25 +95,30 @@ end
 
 module Frm_form1
 
+
   def _form1_init
     self.caption = '物品貸出'
-    self.move(391,129,500,391)
-    addControl(VRStatic,'static4',"返却予定",256,96,64,24,1342177280)
-    addControl(VRStatic,'static1',"学生番号",32,64,64,24,1342177280)
-    addControl(VRStatic,'goods',"",328,64,136,24,1342177408)
-    addControl(VRStatic,'static2',"連絡先",32,96,64,24,1342177280)
-    addControl(VRStatic,'time_return',"",328,96,136,24,1342177408)
-    addControl(VRStatic,'st_no',"",104,64,136,24,1342177408)
+    self.move(391,100,500,550)
+    addControl(VRStatic,'static4',"返却予定",256,96,100,24,1342177280)
+    addControl(VRStatic,'static1',"学生番号",32,64,100,24,1342177280)
+    addControl(VRStatic,'goods',"",350,64,136,24,1342177408)
+    addControl(VRStatic,'static2',"連絡先",32,96,100,24,1342177280)
+    addControl(VRStatic,'time_return',"",350,96,136,24,1342177408)
+    addControl(VRStatic,'st_no',"",130,64,120,24,1342177408)
     addControl(VRButton,'btn_ok',"Ok",288,136,80,32,1342177280)
-    addControl(VRStatic,'tel',"",104,96,136,24,1342177408)
+    addControl(VRStatic,'tel',"",130,96,120,24,1342177408)
     addControl(VRButton,'btn_cancel',"取消",384,136,80,32,1342177280)
-    addControl(VRStatic,'static3',"物品",256,64,64,24,1342177280)
+    addControl(VRStatic,'static3',"物品",256,64,100,24,1342177280)
     addControl(VRHookedEdit,'input',"",32,16,432,24,1342177408)
     addControl(VRStatic,'name',"",32,140,160,24,1342177280)
-    addControl(VRStatic,'yotei',"",32,180,430,160,1350565888)
+    addControl(VRStatic,'yotei',"",32,180,430,310,1350565888)
     addControl(VRButton,'btn_change',"物品交換",192,136,80,32,1342177280)
 
+    addControl(VRStatic,'status',"",32,118,136,24,1342177408)
+
   end 
+
+  LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1']
 
   def construct
     _form1_init
@@ -100,7 +126,31 @@ module Frm_form1
     @btn_ok.disable
     @btn_change.disable
 
-    @kashidashi = Kashidashi.new
+    uri = "druby://#{@ini.server_ip}:#{@ini.server_port}"
+
+    if @ini.sc == :server
+      @kashidashi = Kashidashi.new
+#      p IPSocket.getaddress(Socket.gethostname)      # ocra --console でコンパイルして使うこと
+
+      @status.caption = 'stand alone'
+
+      Thread.new {
+        while LOCAL_HOSTS.include?(IPSocket.getaddress(Socket.gethostname))
+          p "#{IPSocket.getaddress(Socket.gethostname)} waiting network active"      # ocra --console でコンパイルして使うこと
+          sleep 4
+        end
+#        p "#{uri} start"      # ocra --console でコンパイルして使うこと
+        DRb.start_service(uri, @kashidashi)
+        @status.caption = 'server'
+
+      }
+    else
+#      p "client connect to #{uri}"      # ocra --console でコンパイルして使うこと
+      @kashidashi = DRbObject.new_with_uri(uri)
+      @status.caption = 'client'
+    end
+
+
     @yotei.caption = @kashidashi.get_yotei
     @input.focus
 
@@ -119,6 +169,14 @@ module Frm_form1
         end
       end
     end
+
+    yotei_thread = Thread.new do
+      sleep 20
+      while true
+        @yotei.caption = @kashidashi.get_yotei
+        sleep 5
+      end
+    end
   end 
 
   def input_char(ansi, keydata)
@@ -126,6 +184,9 @@ module Frm_form1
 #    p "k #{k}"
     return if k != "\r"
     input_text = @input.text
+
+    @clear_time = Time.new + CLEAR_AFTER_INPUT * 60       # 20141017
+    @input.text = ''                                      # 20141017
 
     case input_text
     when /^A(\d\d\d{8}\d)A$/
@@ -136,12 +197,12 @@ module Frm_form1
       else
         @st_no.caption = 'C/D ERROR!'
       end
-      @clear_time = Time.new + CLEAR_AFTER_INPUT * 60
-      @input.text = ''
+#      @clear_time = Time.new + CLEAR_AFTER_INPUT * 60
+#      @input.text = ''
     when /^\d{10,11}$|^\d{3}-\d{4}-\d{4}$|^\d{2,4}-\d{2,4}-\d{4}$/
       @tel.caption = input_text
-      @clear_time = Time.new + CLEAR_AFTER_INPUT * 60
-      @input.text = ''
+#      @clear_time = Time.new + CLEAR_AFTER_INPUT * 60
+#      @input.text = ''
     when /^\d{3,4}$|^\d{1,2}:\d{2}$/
       if input_text.index(':')
         t_r = input_text
@@ -153,8 +214,8 @@ module Frm_form1
       if t_r > Time.new.strftime("%H:%M")
         @time_return.caption = t_r
       end
-      @clear_time = Time.new + CLEAR_AFTER_INPUT * 60
-      @input.text = ''
+#      @clear_time = Time.new + CLEAR_AFTER_INPUT * 60
+#      @input.text = ''
     when /^KASHI-HEN$/
 #      p @btn_ok.methods.sort
       if @btn_ok.enabled?
@@ -166,7 +227,7 @@ module Frm_form1
       end
     end
 
-    @input.text = ''
+#    @input.text = ''
 
     if @goods.caption != '' and (buppin = @kashidashi.rental?(@goods.caption))
       @btn_ok.caption = '返却'
