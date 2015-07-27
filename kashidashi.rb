@@ -2,8 +2,13 @@
 # encoding: CP932
 ## CAUTION!! ## This code was automagically ;-) created by FormDesigner.
 # NEVER modify manualy -- otherwise, you'll have a terrible experience.
-# 2014.10.17 ƒtƒB[ƒ‹ƒh‚Ì•¶šÁ‹ŠÔİ’è‚ğ‚·‚×‚Ä‚Ì“ü—ÍŒã‚É“K—pi•¨•i‚Ì‚Æ‚«‚Íİ’è‚µ‚Ä‚È‚©‚Á‚½j
-
+# 2014.10.17 ãƒ•ã‚£ãƒ¼ãƒ«ãƒ‰ã®æ–‡å­—æ¶ˆå»æ™‚é–“è¨­å®šã‚’ã™ã¹ã¦ã®å…¥åŠ›å¾Œã«é©ç”¨ï¼ˆç‰©å“ã®ã¨ãã¯è¨­å®šã—ã¦ãªã‹ã£ãŸï¼‰
+# 2015.07.17 è²¸å‡ºæ™‚é–“ã®ãƒ‡ãƒ•ã‚©ãƒ¼ãƒ«ãƒˆå€¤ã‚’è¨­å®šã§ãã‚‹ã‚ˆã†ã«ã—ãŸã€‚
+#            sc.iniã«rental_durartion:ã€€ã§åˆ†æ•°ã‚’è¨­å®šã™ã‚‹ã€‚
+#                 0ãªã‚‰ã°è²¸å‡ºæ™‚åˆ»ãŒè¿”å´äºˆå®šæ™‚åˆ»ã«ãªã‚‹ã€‚
+#                 0ä»¥å¤–ã®æ­£ã®æ•´æ•°ã‚’å…¥ã‚Œã‚‹ã¨ç¾åœ¨æ™‚åˆ»ï¼‹æŒ‡å®šåˆ†æ•°ãŒè¿”å´æ™‚åˆ»ã«ãªã‚‹ã€‚
+#                 rental_durationã‚’æ›¸ã‹ãªã„ã¨è¿”å´äºˆå®šæ™‚åˆ»ã‚’å…¥åŠ›ã™ã‚‹å¿…è¦ã‚ã‚Šã€‚
+# 2015.07.17 è²¸å‡ºæ—¥ã‚’è²¸å‡ºã”ã¨ã«è¨­å®šã™ã‚‹ã‚ˆã†ã«ã—ãŸã€‚
 
 require 'drb/drb'
 
@@ -30,7 +35,7 @@ end
 
 class INIT
 
-  attr_reader :goods, :meibo, :sc, :server_ip, :server_port
+  attr_reader :goods, :meibo, :sc, :server_ip, :server_port, :duration
 
   def initialize
     @goods = {}
@@ -41,7 +46,7 @@ class INIT
        goods[kigo] = true
      }
     }
-    @meibo = Hash.new {|h, k| h[k] = "HHHHHH"}
+    @meibo = Hash.new {|h, k| h[k] = "ï¼Ÿï¼Ÿï¼Ÿï¼Ÿï¼Ÿï¼Ÿ"}
     File.open('./gakusei_meibo.csv', 'r') {|f|
       f.each {|line|
         next if /\A#/ =~ line
@@ -52,6 +57,7 @@ class INIT
     @sc = :server
     @server_ip = 'localhost'
     @server_port = '12345'
+    @duration = nil
 
     if File.exist? SC_INI
       File.open(SC_INI, 'r') {|f|
@@ -61,6 +67,7 @@ class INIT
           @sc = :client if line =~ /\Asc:client/i
           @server_ip = $1 if line =~ /\Aserver_ip:(\d+\.\d+\.\d+\.\d+)/i
           @server_port = $1 if line =~ /\Aserver_port:(\d+)/i
+          @duration = $1.to_i if line =~ /\Arental_duration:(\d+)/i
         }
       }
     end
@@ -97,22 +104,26 @@ module Frm_form1
 
 
   def _form1_init
-    self.caption = '•¨•i‘İo'
+    self.caption = 'ç‰©å“è²¸å‡º'
     self.move(391,100,500,550)
-    addControl(VRStatic,'static4',"•Ô‹p—\’è",256,96,100,24,1342177280)
-    addControl(VRStatic,'static1',"Šw¶”Ô†",32,64,100,24,1342177280)
+    if @ini.duration == nil or @ini.duration != 0
+      addControl(VRStatic,'static4',"è¿”å´äºˆå®š",256,96,100,24,1342177280)
+    else
+      addControl(VRStatic,'static4',"è²¸å‡ºæ™‚åˆ»",256,96,100,24,1342177280)
+    end
+    addControl(VRStatic,'static1',"å­¦ç”Ÿç•ªå·",32,64,100,24,1342177280)
     addControl(VRStatic,'goods',"",350,64,136,24,1342177408)
-    addControl(VRStatic,'static2',"˜A—æ",32,96,100,24,1342177280)
+    addControl(VRStatic,'static2',"é€£çµ¡å…ˆ",32,96,100,24,1342177280)
     addControl(VRStatic,'time_return',"",350,96,136,24,1342177408)
     addControl(VRStatic,'st_no',"",130,64,120,24,1342177408)
     addControl(VRButton,'btn_ok',"Ok",288,136,80,32,1342177280)
     addControl(VRStatic,'tel',"",130,96,120,24,1342177408)
-    addControl(VRButton,'btn_cancel',"æÁ",384,136,80,32,1342177280)
-    addControl(VRStatic,'static3',"•¨•i",256,64,100,24,1342177280)
+    addControl(VRButton,'btn_cancel',"å–æ¶ˆ",384,136,80,32,1342177280)
+    addControl(VRStatic,'static3',"ç‰©å“",256,64,100,24,1342177280)
     addControl(VRHookedEdit,'input',"",32,16,432,24,1342177408)
     addControl(VRStatic,'name',"",32,140,160,24,1342177280)
     addControl(VRStatic,'yotei',"",32,180,430,310,1350565888)
-    addControl(VRButton,'btn_change',"•¨•iŒğŠ·",192,136,80,32,1342177280)
+    addControl(VRButton,'btn_change',"ç‰©å“äº¤æ›",192,136,80,32,1342177280)
 
     addControl(VRStatic,'status',"",32,118,136,24,1342177408)
 
@@ -121,8 +132,8 @@ module Frm_form1
   LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1']
 
   def construct
-    _form1_init
     @ini = INIT.new
+    _form1_init
     @btn_ok.disable
     @btn_change.disable
 
@@ -130,22 +141,22 @@ module Frm_form1
 
     if @ini.sc == :server
       @kashidashi = Kashidashi.new
-#      p IPSocket.getaddress(Socket.gethostname)      # ocra --console ‚ÅƒRƒ“ƒpƒCƒ‹‚µ‚Äg‚¤‚±‚Æ
+#      p IPSocket.getaddress(Socket.gethostname)      # ocra --console ã§ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã—ã¦ä½¿ã†ã“ã¨
 
       @status.caption = 'stand alone'
 
       Thread.new {
         while LOCAL_HOSTS.include?(IPSocket.getaddress(Socket.gethostname))
-          p "#{IPSocket.getaddress(Socket.gethostname)} waiting network active"      # ocra --console ‚ÅƒRƒ“ƒpƒCƒ‹‚µ‚Äg‚¤‚±‚Æ
+#          p "#{IPSocket.getaddress(Socket.gethostname)} waiting network active"      # ocra --console ã§ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã—ã¦ä½¿ã†ã“ã¨
           sleep 4
         end
-#        p "#{uri} start"      # ocra --console ‚ÅƒRƒ“ƒpƒCƒ‹‚µ‚Äg‚¤‚±‚Æ
+#        p "#{uri} start"      # ocra --console ã§ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã—ã¦ä½¿ã†ã“ã¨
         DRb.start_service(uri, @kashidashi)
         @status.caption = 'server'
 
       }
     else
-#      p "client connect to #{uri}"      # ocra --console ‚ÅƒRƒ“ƒpƒCƒ‹‚µ‚Äg‚¤‚±‚Æ
+#      p "client connect to #{uri}"      # ocra --console ã§ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã—ã¦ä½¿ã†ã“ã¨
       @kashidashi = DRbObject.new_with_uri(uri)
       @status.caption = 'client'
     end
@@ -195,7 +206,7 @@ module Frm_form1
         @st_no.caption = st_no[2..-2]
         @name.caption = @ini.meibo[@st_no.caption]
       else
-        @st_no.caption = 'C/D ERROR!'
+        @name.caption = 'C/D ERROR!'
       end
 #      @clear_time = Time.new + CLEAR_AFTER_INPUT * 60
 #      @input.text = ''
@@ -225,12 +236,15 @@ module Frm_form1
       if @ini.goods[input_text]
         @goods.caption = input_text
       end
+      if @ini.duration
+        @time_return.caption = (Time.new + @ini.duration * 60).strftime("%H:%M")
+      end
     end
 
 #    @input.text = ''
 
     if @goods.caption != '' and (buppin = @kashidashi.rental?(@goods.caption))
-      @btn_ok.caption = '•Ô‹p'
+      @btn_ok.caption = 'è¿”å´'
 #      p buppin
       @st_no.caption = buppin.st_no
       @tel.caption = buppin.tel_no
@@ -239,10 +253,10 @@ module Frm_form1
       @btn_ok.enable
       @btn_change.enable
     else
-      @btn_ok.caption = '‘İ‚µo‚µ'
+      @btn_ok.caption = 'è²¸ã—å‡ºã—'
       @btn_ok.disable
       if @st_no.caption != '' and @tel.caption != '' and @time_return.caption != '' and @goods.caption != ''
-        @btn_ok.caption = '‘İ‚µo‚µ'
+        @btn_ok.caption = 'è²¸ã—å‡ºã—'
         @btn_ok.enable
       end
     end
@@ -252,14 +266,14 @@ module Frm_form1
   def btn_ok_clicked
 #    puts 'click'
     case
-    when @btn_ok.caption == '‘İ‚µo‚µ'
-      @kashidashi.kashi(Buppin.new(nil, @goods.caption, @st_no.caption, @name.caption, @tel.caption, nil, @time_return.caption))
+    when @btn_ok.caption == 'è²¸ã—å‡ºã—'
+      @kashidashi.kashi(Buppin.new(Date.today.strftime('%Y/%m/%d'), @goods.caption, @st_no.caption, @name.caption, @tel.caption, nil, @time_return.caption))
       @btn_ok.disable
       @goods.caption = ''
       @yotei.caption = @kashidashi.get_yotei
       @clear_time = Time.new + CLEAR_AFTER_KASHIDASHI * 60
       @input.focus
-    when @btn_ok.caption == '•Ô‹p'
+    when @btn_ok.caption == 'è¿”å´'
       @kashidashi.hen(@goods.caption)
       @btn_ok.disable
       @btn_change.disable

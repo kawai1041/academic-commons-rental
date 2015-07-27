@@ -3,6 +3,7 @@
 #
 # 2013.07.02:KAWAI Toshikazu
 #
+# 2015.07.17 è²¸å‡ºæ—¥ã‚’å‘¼ã³å‡ºã—å´ãŒè²¸å‡ºã”ã¨ã«è¨­å®šã™ã‚‹ã‚ˆã†ã«ã—ãŸã€‚
 
 require 'date'
 
@@ -10,10 +11,8 @@ CURRENT_FILE = 'current_'
 LOG_FILE = 'kashidashi_'
 
 class Buppin
-  @@today = Date.today.strftime('%Y/%m/%d')
   attr_reader :mono, :time, :time_return, :st_no, :tel_no
   def initialize(yymmdd, mono, st_no, name, tel_no, time, time_return)
-    yymmdd ||= @@today
     time ||= Time.now.strftime("%H:%M")
     @yymmdd, @mono, @st_no, @name, @tel_no, @time, @time_return = yymmdd, mono, st_no, name, tel_no, time, time_return
   end
@@ -32,6 +31,7 @@ class Kashidashi
     @current_file = CURRENT_FILE + Date.today.strftime('%Y%m%d') + ".csv"
     @sumi_file    = LOG_FILE     + Date.today.strftime('%Y%m%d') + ".csv"
     @kashidashi_chu = {}
+    @mutex = Mutex.new
     if File.exist? @current_file
       File.open(@current_file, 'r') {|f|
         f.each {|line|
@@ -43,9 +43,9 @@ class Kashidashi
     end
     unless File.exist? @sumi_file
       File.open(@sumi_file, 'w') {|f|
-        f.print "#‚±‚Ìƒtƒ@ƒCƒ‹‚ğŠJ‚¢‚½‚Ü‚Ü•Ô‹p‘€ì‚ğ‚µ‚½‚çƒGƒ‰[‚É‚È‚éB\n"
-        f.print "#ƒGƒ‰[‚É‚È‚Á‚½‚Æ‚«‚Í‘İoƒ\ƒtƒg‚ğÄ‹N“®‚µA•Ô‹p‘€ì‚ğ‚¨‚±‚È‚¤‚±‚Æ\n#\n"
-        f.print "#”NŒ“ú,‘İo•¨•i,Šw¶”Ô†,˜A—æ,‘İo,•Ô‹p—\’è,•Ô‹p\n"
+        f.print "#ã“ã®ãƒ•ã‚¡ã‚¤ãƒ«ã‚’é–‹ã„ãŸã¾ã¾è¿”å´æ“ä½œã‚’ã—ãŸã‚‰ã‚¨ãƒ©ãƒ¼ã«ãªã‚‹ã€‚\n"
+        f.print "#ã‚¨ãƒ©ãƒ¼ã«ãªã£ãŸã¨ãã¯è²¸å‡ºã‚½ãƒ•ãƒˆã‚’å†èµ·å‹•ã—ã€è¿”å´æ“ä½œã‚’ãŠã“ãªã†ã“ã¨\n#\n"
+        f.print "#å¹´æœˆæ—¥,è²¸å‡ºç‰©å“,å­¦ç”Ÿç•ªå·,é€£çµ¡å…ˆ,è²¸å‡ºæ™‚åˆ»,è¿”å´äºˆå®šæ™‚åˆ»,è¿”å´æ™‚åˆ»\n"
       }
     end
 
@@ -56,31 +56,35 @@ class Kashidashi
   end
 
   def kashi(buppin)
-    if @kashidashi_chu[buppin.mono]
-      raise
-    else
-      @kashidashi_chu[buppin.mono] = buppin
-      write_current
-    end
+    @mutex.synchronize {
+      if @kashidashi_chu[buppin.mono]
+        raise
+      else
+        @kashidashi_chu[buppin.mono] = buppin
+        write_current
+      end
+    }
   end
 
   def hen(mono)
-    if rental?(mono)
-      File.open(@sumi_file, 'a') {|f|
-        f.print @kashidashi_chu[mono].to_csv_noname + "," + Time.now.strftime("%H:%M") + "\n"
-      }
-      @kashidashi_chu.delete(mono)
-      write_current
-    end
+    @mutex.synchronize {
+      if rental?(mono)
+        File.open(@sumi_file, 'a') {|f|
+          f.print @kashidashi_chu[mono].to_csv_noname + "," + Time.now.strftime("%H:%M") + "\n"
+        }
+        @kashidashi_chu.delete(mono)
+        write_current
+      end
+    }
   end
 
   def write_current
 #    p @kashidashi_chu.values
     current = @kashidashi_chu.values.sort_by {|elm| elm.time}
     File.open(@current_file, "w") {|f|
-        f.print "#‚±‚Ìƒtƒ@ƒCƒ‹‚ğŠJ‚¢‚½‚Ü‚Ü‘İo•Ô‹p‘€ì‚ğ‚µ‚½‚çƒGƒ‰[‚É‚È‚éB\n"
-        f.print "#ƒGƒ‰[‚É‚È‚Á‚½‚Æ‚«‚Í‘İoƒ\ƒtƒg‚ğÄ‹N“®‚µA‘İo•Ô‹p‘€ì‚ğ‚¨‚±‚È‚¤‚±‚Æ\n#\n"
-      f.print "#”NŒ“ú,•¨•i,Šw¶”Ô†,–¼,˜A—æ,‘İo,•Ô‹p—\’è\n"
+        f.print "#ã“ã®ãƒ•ã‚¡ã‚¤ãƒ«ã‚’é–‹ã„ãŸã¾ã¾è²¸å‡ºè¿”å´æ“ä½œã‚’ã—ãŸã‚‰ã‚¨ãƒ©ãƒ¼ã«ãªã‚‹ã€‚\n"
+        f.print "#ã‚¨ãƒ©ãƒ¼ã«ãªã£ãŸã¨ãã¯è²¸å‡ºã‚½ãƒ•ãƒˆã‚’å†èµ·å‹•ã—ã€è²¸å‡ºè¿”å´æ“ä½œã‚’ãŠã“ãªã†ã“ã¨\n#\n"
+      f.print "#å¹´æœˆæ—¥,ç‰©å“,å­¦ç”Ÿç•ªå·,æ°å,é€£çµ¡å…ˆ,è²¸å‡ºæ™‚åˆ»,è¿”å´äºˆå®šæ™‚åˆ»\n"
       current.each {|elm|
         f.print elm.to_csv + "\n"
       }
@@ -89,11 +93,13 @@ class Kashidashi
 
   def get_yotei
     hen_yotei = {}
-    @kashidashi_chu.keys.sort.each {|mono|
-      shubetsu, no = $1, $2 if mono =~ /([\d|\w]*\w)(\d\d)/
-#      p shubetsu
-      hen_yotei[shubetsu] ||= []
-      hen_yotei[shubetsu] << @kashidashi_chu[mono].time_return + '(' + no + ')'
+    @mutex.synchronize {
+      @kashidashi_chu.keys.sort.each {|mono|
+        shubetsu, no = $1, $2 if mono =~ /([\d|\w]*\w)(\d\d)/
+#        p shubetsu
+        hen_yotei[shubetsu] ||= []
+        hen_yotei[shubetsu] << @kashidashi_chu[mono].time_return.dup + '(' + no + ')'
+      }
     }
     result = []
 #    p hen_yotei
